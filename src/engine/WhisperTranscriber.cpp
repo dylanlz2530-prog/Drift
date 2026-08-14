@@ -246,7 +246,7 @@ Ort::Value floatView(const Ort::Value &src)
 // cuMemcpyDtoH from the already-loaded NVIDIA driver (plain memcpy for CPU
 // tensors). Without this the app read GPU pointers as host memory and sampled
 // garbage tokens ("Y", "ya.").
-static bool copyLogitsToHost(const Ort::Value &logits, std::vector<float> &dst)
+static bool copyLogitsToHost(Ort::Value &logits, std::vector<float> &dst)
 {
     dst.resize(static_cast<size_t>(logits.GetTensorTypeAndShapeInfo().GetElementCount()));
     if (dst.empty())
