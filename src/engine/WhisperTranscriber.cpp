@@ -3,6 +3,7 @@
 #include "WhisperTokenizer.h"
 #include "GpuPackageParse.h"
 #include "OrtRuntime.h"
+#include "OrtSupport.h"
 #include "core/Time.h"
 
 #include <QByteArray>
@@ -614,8 +615,8 @@ bool WhisperTranscriber::Impl::ensureLoaded()
 
     try {
         Ort::Env &ortEnv = ort::env();
-        Ort::SessionOptions opts;
-        opts.SetIntraOpNumThreads(std::max(1, QThread::idealThreadCount()));
+        // GPU fix: honour the acceleration addon choice (CUDA/WebGPU) instead of always CPU.
+        Ort::SessionOptions opts = drift::ort::defaultSessionOptions(ortEnv, "whisper");
         // fp16 graph fusions (SimplifiedLayerNormFusion) crash on load; disable them.
         opts.SetGraphOptimizationLevel(ORT_DISABLE_ALL);
 

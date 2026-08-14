@@ -64,24 +64,35 @@ const char *const kDnxhd[] = {"dnxhd", nullptr};
 const char *const kProres[] = {"prores_ks", "prores", nullptr};
 const char *const kLibtheora[] = {"libtheora", nullptr};
 
+const char *const kNvencH264[] = {"h264_nvenc", "h264", nullptr};
+const char *const kNvencHevc[] = {"hevc_nvenc", "hevc", nullptr};
+const char *const kNvencAv1[] = {"av1_nvenc", nullptr};
+
 const char *const kX264Presets[] = {"ultrafast", "superfast", "veryfast", "faster", "fast",
                                     "medium",    "slow",      "slower",   "veryslow", nullptr};
 const char *const kSvtPresets[] = {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", nullptr};
 const char *const kVp9CpuUsed[] = {"0", "1", "2", "3", "4", "5", "6", "7", "8", nullptr};
+const char *const kNvencPresets[] = {"p1", "p2", "p3", "p4", "p5", "p6", "p7", nullptr};
 
 const VideoCodecDef kVideoCodecs[] = {
     {"av1_svt", "AV1 (SVT)", kLibSvtAv1, AV_PIX_FMT_YUV420P, RateMode::Crf, true, kSvtPresets, "6", 35, "mp4"},
     {"av1_svt_10", "AV1 10-bit (SVT)", kLibSvtAv1, AV_PIX_FMT_YUV420P10LE, RateMode::Crf, true, kSvtPresets, "6", 35,
      "mkv"},
+    {"av1_nvenc", "AV1 (NVENC)", kNvencAv1, AV_PIX_FMT_YUV420P, RateMode::Crf, true, kNvencPresets, "p4", 30,
+     "mp4"},
     {"ffv1", "FFV1", kFfv1, AV_PIX_FMT_YUV444P, RateMode::Lossless, false, nullptr, nullptr, 0, "mkv"},
     {"h264", "H.264 (x264)", kLibx264, AV_PIX_FMT_YUV420P, RateMode::Crf, true, kX264Presets, "medium", 18, "mp4"},
     {"h264_10", "H.264 10-bit (x264)", kLibx264, AV_PIX_FMT_YUV420P10LE, RateMode::Crf, true, kX264Presets, "medium",
      18, "mkv"},
+    {"h264_nvenc", "H.264 (NVENC)", kNvencH264, AV_PIX_FMT_YUV420P, RateMode::Crf, true, kNvencPresets, "p4", 18,
+     "mp4"},
     {"h265", "H.265 (x265)", kLibx265, AV_PIX_FMT_YUV420P, RateMode::Crf, true, kX264Presets, "medium", 28, "mp4"},
     {"h265_10", "H.265 10-bit (x265)", kLibx265, AV_PIX_FMT_YUV420P10LE, RateMode::Crf, true, kX264Presets, "medium",
      28, "mkv"},
     {"h265_12", "H.265 12-bit (x265)", kLibx265, AV_PIX_FMT_YUV420P12LE, RateMode::Crf, true, kX264Presets, "medium",
      28, "mkv"},
+    {"h265_nvenc", "H.265 (NVENC)", kNvencHevc, AV_PIX_FMT_YUV420P, RateMode::Crf, true, kNvencPresets, "p4", 24,
+     "mp4"},
     {"mpeg4", "MPEG-4", kMpeg4, AV_PIX_FMT_YUV420P, RateMode::Bitrate, false, nullptr, nullptr, 0, "mp4"},
     {"mpeg2", "MPEG-2", kMpeg2, AV_PIX_FMT_YUV420P, RateMode::Bitrate, false, nullptr, nullptr, 0, "mkv"},
     {"vp8", "VP8", kLibvpx, AV_PIX_FMT_YUV420P, RateMode::Crf, true, kVp9CpuUsed, "4", 10, "webm"},
