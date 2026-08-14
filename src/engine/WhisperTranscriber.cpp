@@ -21,6 +21,10 @@
 
 #include <onnxruntime_cxx_api.h>
 
+#ifdef _WIN32
+#    include <windows.h>
+#endif
+
 extern "C" {
 #include <libavutil/mem.h>
 #include <libavutil/tx.h>
@@ -235,6 +239,37 @@ Ort::Value floatView(const Ort::Value &src)
                                            const_cast<float *>(src.GetTensorData<float>()),
                                            info.GetElementCount(), shape.data(), shape.size());
 }
+
+#ifdef _WIN32
+// GPU fix: ONNX Runtime hands back output tensors in device memory on CUDA
+// sessions. The sampler needs host floats, so copy device -> host with
+// cuMemcpyDtoH from the already-loaded NVIDIA driver (plain memcpy for CPU
+// tensors). Without this the app read GPU pointers as host memory and sampled
+// garbage tokens ("Y", "ya.").
+static bool copyLogitsToHost(const Ort::Value &logits, std::vector<float> &dst)
+{
+    dst.resize(static_cast<size_t>(logits.GetTensorTypeAndShapeInfo().GetElementCount()));
+    if (dst.empty())
+        return true;
+    const float *src = logits.GetTensorMutableData<float>();
+    const Ort::ConstMemoryInfo mem = logits.GetTensorMemoryInfo();
+    if (mem.GetDeviceType() == OrtMemoryInfoDeviceType_CPU) {
+        memcpy(dst.data(), src, dst.size() * sizeof(float));
+        return true;
+    }
+    static auto cuMemcpyDtoH = []() -> int (*)(unsigned long long, void *, unsigned long long) {
+        HMODULE h = GetModuleHandleW(L"nvcuda.dll");
+        if (!h)
+            return nullptr;
+        return reinterpret_cast<int (*)(unsigned long long, void *, unsigned long long)>(
+            GetProcAddress(h, "cuMemcpyDtoH"));
+    }();
+    if (!cuMemcpyDtoH)
+        return false;
+    return cuMemcpyDtoH(reinterpret_cast<unsigned long long>(src), dst.data(),
+                        dst.size() * sizeof(float)) == 0;
+}
+#endif
 
 std::string presentToPast(const std::string &name)
 {
@@ -452,7 +487,10 @@ std::vector<int> WhisperTranscriber::Impl::decodeWindow(
             auto outs =
                 decoder->Run(Ort::RunOptions{nullptr}, inN, ins, 2, outN.data(), outN.size());
 
-            const float *logits = outs[0].GetTensorMutableData<float>();
+            std::vector<float> logitsHost;
+            if (!copyLogitsToHost(outs[0], logitsHost))
+                return {};
+            const float *logits = logitsHost.data();
             const int last = static_cast<int>(prompt.size()) - 1;
             nextToken = sampleToken(logits + static_cast<size_t>(last) * kVocab, generated,
                                     minTimestamp, firstStep, temperature);
@@ -516,7 +554,10 @@ std::vector<int> WhisperTranscriber::Impl::decodeWindow(
             auto outs = decoderPast->Run(Ort::RunOptions{nullptr}, inN.data(), ins.data(),
                                          ins.size(), outN.data(), outN.size());
 
-            const float *logits = outs[0].GetTensorMutableData<float>();
+            std::vector<float> logitsHost;
+            if (!copyLogitsToHost(outs[0], logitsHost))
+                break;
+            const float *logits = logitsHost.data();
             nextToken = sampleToken(logits, generated, minTimestamp, false, temperature);
 
             for (size_t i = 1; i < decpOutNames.size(); ++i)
