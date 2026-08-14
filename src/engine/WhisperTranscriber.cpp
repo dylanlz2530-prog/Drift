@@ -224,11 +224,15 @@ QString formatClock(double seconds)
         .arg(total % 60, 2, 10, QLatin1Char('0'));
 }
 
-Ort::Value floatView(const Ort::Value &src, const Ort::MemoryInfo &mem)
+Ort::Value floatView(const Ort::Value &src)
 {
     auto info = src.GetTensorTypeAndShapeInfo();
     auto shape = info.GetShape();
-    return Ort::Value::CreateTensor<float>(mem, const_cast<float *>(src.GetTensorData<float>()),
+    // GPU fix: wrap the tensor in its own memory space (device for CUDA sessions)
+    // instead of always claiming CPU memory, which fed device pointers to the
+    // CPU path and produced garbage logits on GPU.
+    return Ort::Value::CreateTensor<float>(src.GetTensorMemoryInfo(),
+                                           const_cast<float *>(src.GetTensorData<float>()),
                                            info.GetElementCount(), shape.data(), shape.size());
 }
 
@@ -439,7 +443,7 @@ std::vector<int> WhisperTranscriber::Impl::decodeWindow(
             const int64_t idShape[2] = {1, static_cast<int64_t>(prompt.size())};
             Ort::Value idTensor = Ort::Value::CreateTensor<int64_t>(
                 ort::cpuMemory(), const_cast<int64_t *>(prompt.data()), prompt.size(), idShape, 2);
-            Ort::Value encView = floatView(encHidden, ort::cpuMemory());
+            Ort::Value encView = floatView(encHidden);
             Ort::Value ins[2] = {std::move(idTensor), std::move(encView)};
             const char *inN[2] = {decInNames[0].c_str(), decInNames[1].c_str()};
             std::vector<const char *> outN;
@@ -503,7 +507,7 @@ std::vector<int> WhisperTranscriber::Impl::decodeWindow(
                 else if (name == "cache_position")
                     ins.push_back(std::move(cacheTensor));
                 else
-                    ins.push_back(floatView(pastKV.at(name), ort::cpuMemory()));
+                    ins.push_back(floatView(pastKV.at(name)));
             }
             std::vector<const char *> outN;
             for (const auto &n : decpOutNames)
@@ -849,7 +853,7 @@ WhisperResult WhisperTranscriber::transcribe(
             const int64_t idShape[2] = {1, 1};
             Ort::Value idTensor =
                 Ort::Value::CreateTensor<int64_t>(ort::cpuMemory(), ids.data(), ids.size(), idShape, 2);
-            Ort::Value encView = floatView(encHidden, ort::cpuMemory());
+            Ort::Value encView = floatView(encHidden);
             std::vector<Ort::Value> ins;
             ins.push_back(std::move(idTensor));
             ins.push_back(std::move(encView));
